@@ -1,0 +1,8 @@
+# Copia estas líneas en tu archivo ~/.Renviron y reemplaza la clave.
+# Nunca compartas ni subas tu clave a GitHub.
+OPENAI_API_KEY=tu_clave_aqui
+OPENAI_MODEL=gpt-5.6
+
+# Solo para la versión web. Configúralas como secretos en Posit Connect Cloud.
+DATABASE_URL=postgresql://usuario:clave@servidor/base?sslmode=require
+APP_USERS=[{"user":"jose","password":"cambiar_clave","admin":true}]

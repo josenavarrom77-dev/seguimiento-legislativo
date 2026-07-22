@@ -1,0 +1,6 @@
+.Renviron
+data
+migrate_to_postgres.R
+prepare_deployment.R
+WEB_DEPLOYMENT.md
+rsconnect
