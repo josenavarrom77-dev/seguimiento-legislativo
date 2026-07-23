@@ -78,11 +78,10 @@ app_ui <- shiny::navbarPage(
       shiny::fluidRow(
         shiny::column(
           12,
-          shiny::selectizeInput(
+          shiny::selectInput(
             "senate_selected_id",
             "Proyecto seleccionado",
-            choices = character(0),
-            options = list(placeholder = "Busca por número o título y selecciona un proyecto")
+            choices = c("— Selecciona por número o título —" = "")
           ),
           shiny::uiOutput("senate_selected_summary"),
           shiny::div(
@@ -521,6 +520,10 @@ server <- function(input, output, session) {
   selected_senate_import <- shiny::reactive({
     data <- senate_data()
     selected_id <- collapse_value(input$senate_selected_id)
+    selected_row <- input$senate_table_rows_selected
+    if (!nzchar(selected_id) && length(selected_row) == 1L && nrow(data)) {
+      selected_id <- collapse_value(data$senado_id[[selected_row[[1]]]])
+    }
     if (!nzchar(selected_id) || !nrow(data)) return(NULL)
     position <- which(data$senado_id == selected_id)
     if (!length(position)) return(NULL)
@@ -530,19 +533,19 @@ server <- function(input, output, session) {
   shiny::observe({
     data <- senate_data()
     if (!nrow(data)) {
-      shiny::updateSelectizeInput(
+      shiny::updateSelectInput(
         session, "senate_selected_id",
-        choices = character(0), selected = character(0), server = TRUE
+        choices = c("— No hay proyectos visibles —" = ""), selected = ""
       )
       return()
     }
     labels <- paste0(data$numero_senado, " · ", data$comision, " · ", substr(data$titulo, 1, 120))
-    choices <- stats::setNames(data$senado_id, labels)
+    choices <- c("— Selecciona por número o título —" = "", stats::setNames(data$senado_id, labels))
     current <- shiny::isolate(collapse_value(input$senate_selected_id))
-    selected <- if (current %in% data$senado_id) current else character(0)
-    shiny::updateSelectizeInput(
+    selected <- if (current %in% data$senado_id) current else ""
+    shiny::updateSelectInput(
       session, "senate_selected_id",
-      choices = choices, selected = selected, server = TRUE
+      choices = choices, selected = selected
     )
   })
 
@@ -550,9 +553,9 @@ server <- function(input, output, session) {
     selected <- input$senate_table_rows_selected
     data <- senate_data()
     if (length(selected) == 1L && nrow(data)) {
-      shiny::updateSelectizeInput(
+      shiny::updateSelectInput(
         session, "senate_selected_id",
-        selected = data$senado_id[[selected[[1]]]], server = TRUE
+        selected = data$senado_id[[selected[[1]]]]
       )
     }
   }, ignoreInit = TRUE)
@@ -669,8 +672,8 @@ server <- function(input, output, session) {
     tryCatch({
       set_senate_import_status(row$senado_id, "Ignorado", db_path, current_user())
       refresh(refresh() + 1L)
-      shiny::updateSelectizeInput(
-        session, "senate_selected_id", selected = character(0), server = TRUE
+      shiny::updateSelectInput(
+        session, "senate_selected_id", selected = ""
       )
       shiny::showNotification("Proyecto ignorado. El robot no lo analizará.", type = "message")
     }, error = function(e) {
