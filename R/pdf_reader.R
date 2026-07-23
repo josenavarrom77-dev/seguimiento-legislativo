@@ -2,8 +2,9 @@ download_pdf <- function(url, destination = tempfile(fileext = ".pdf")) {
   if (!grepl("^https?://", url, ignore.case = TRUE)) {
     stop("El enlace debe comenzar con http:// o https://")
   }
+  safe_url <- utils::URLencode(trimws(url), reserved = FALSE, repeated = FALSE)
 
-  response <- httr2::request(url) |>
+  response <- httr2::request(safe_url) |>
     httr2::req_user_agent("SeguimientoLegislativoUTL/0.1") |>
     httr2::req_timeout(60) |>
     httr2::req_perform()

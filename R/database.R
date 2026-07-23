@@ -340,6 +340,8 @@ upsert_senate_import <- function(item, path = file.path("data", "proyectos.sqlit
       detalle_url = excluded.detalle_url,
       pdf_url = excluded.pdf_url,
       estado_importacion = CASE
+        WHEN importaciones_senado.estado_importacion = 'Error'
+        THEN 'Nuevo'
         WHEN importaciones_senado.estado_importacion = 'Sin PDF'
           AND importaciones_senado.pdf_url = ''
           AND excluded.pdf_url <> ''
