@@ -7,4 +7,3 @@ data/*.sqlite-*
 .Renviron
 rsconnect/
 .Rproj.user/
-.DS_Store

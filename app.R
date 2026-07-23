@@ -1,3 +1,4 @@
+library(xml2)
 required_packages <- c("shiny", "bslib", "DT", "pdftools", "httr2", "jsonlite", "stringr", "xml2", "DBI", "RSQLite", "RPostgres", "openxlsx", "shinymanager")
 missing_packages <- required_packages[!vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)]
 if (length(missing_packages)) {
