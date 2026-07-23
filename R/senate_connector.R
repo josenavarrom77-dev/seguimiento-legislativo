@@ -23,28 +23,36 @@ senate_get_text <- function(url) {
     httr2::resp_body_string()
 }
 
-senate_detail_value <- function(document, label) {
-  labels <- xml2::xml_find_all(document, ".//td")
-  texts <- trimws(xml2::xml_text(labels))
-  position <- which(tolower(gsub(":$", "", texts)) == tolower(gsub(":$", "", label)))
-  if (!length(position)) return("")
-  node <- xml2::xml_find_first(labels[[position[[1]]]], "following-sibling::td[1]")
-  if (inherits(node, "xml_missing")) "" else trimws(xml2::xml_text(node))
+senate_regex_value <- function(text, pattern) {
+  match <- regexec(pattern, text, perl = TRUE, ignore.case = TRUE)
+  parts <- regmatches(text, match)[[1]]
+  if (length(parts) < 2L) return("")
+  trimws(gsub("<[^>]+>", "", parts[[2]]))
 }
 
 senate_detail <- function(id) {
   detail_url <- paste0(senate_base_url, "/api/get_detalle_pdly.php?id=", id)
   html <- senate_get_text(detail_url)
-  document <- xml2::read_html(html)
-  pdf_node <- xml2::xml_find_first(document, ".//*[@id='textoRadicadoBtn']")
-  pdf_url <- if (inherits(pdf_node, "xml_missing")) "" else xml2::xml_attr(pdf_node, "data-link") %||% ""
+  pdf_url <- senate_regex_value(
+    html,
+    "id=['\"]textoRadicadoBtn['\"][^>]*data-link=['\"]([^'\"]*)['\"]"
+  )
+  if (!nzchar(pdf_url)) {
+    pdf_url <- senate_regex_value(
+      html,
+      "data-link=['\"]([^'\"]*)['\"][^>]*id=['\"]textoRadicadoBtn['\"]"
+    )
+  }
   if (nzchar(pdf_url) && !grepl("^https?://", pdf_url, ignore.case = TRUE)) {
     pdf_url <- paste0(senate_base_url, "/", sub("^/+", "", pdf_url))
   }
   list(
     detalle_url = detail_url,
     pdf_url = pdf_url,
-    fecha_presentacion = senate_detail_value(document, "Fecha de Presentación")
+    fecha_presentacion = senate_regex_value(
+      html,
+      "Fecha de Presentaci[oó]n</td>\\s*<td[^>]*>([^<]*)"
+    )
   )
 }
 
@@ -127,6 +135,7 @@ analyze_senate_import <- function(row, db_path = file.path("data", "proyectos.sq
 
 run_senate_ingestion <- function(
   legislature = Sys.getenv("SENATE_LEGISLATURE", "2026-2027"),
+  commission = Sys.getenv("SENATE_COMMISSION", "SEPTIMA"),
   max_analyses = as.integer(Sys.getenv("SENATE_MAX_ANALYSES", "3")),
   analyze = TRUE,
   db_path = file.path("data", "proyectos.sqlite")
@@ -134,7 +143,20 @@ run_senate_ingestion <- function(
   discovered <- discover_senate_projects(legislature, db_path)
   processed <- 0L
   if (isTRUE(analyze) && max_analyses > 0L) {
-    queue <- list_senate_imports("Nuevo", max_analyses, db_path)
+    queue <- list_senate_imports("Nuevo", 500L, db_path)
+    if (nzchar(trimws(commission)) && nrow(queue)) {
+      normalize_commission <- function(x) {
+        toupper(trimws(iconv(x, to = "ASCII//TRANSLIT")))
+      }
+      queue <- queue[
+        normalize_commission(queue$comision) == normalize_commission(commission),
+        ,
+        drop = FALSE
+      ]
+    }
+    if (nrow(queue) > max_analyses) {
+      queue <- queue[seq_len(max_analyses), , drop = FALSE]
+    }
     if (nrow(queue)) {
       for (i in seq_len(nrow(queue))) {
         processed <- processed + as.integer(isTRUE(

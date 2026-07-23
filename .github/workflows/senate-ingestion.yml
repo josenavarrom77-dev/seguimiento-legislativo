@@ -9,25 +9,19 @@ on:
 jobs:
   importar:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-
+    timeout-minutes: 45
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-5.6' }}
       SENATE_LEGISLATURE: ${{ vars.SENATE_LEGISLATURE || '2026-2027' }}
+      SENATE_COMMISSION: ${{ vars.SENATE_COMMISSION || 'SEPTIMA' }}
       SENATE_MAX_ANALYSES: ${{ vars.SENATE_MAX_ANALYSES || '3' }}
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: r-lib/actions/setup-r@v2
-
       - name: Dependencias del sistema
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libpoppler-cpp-dev libqpdf-dev libleptonica-dev libtesseract-dev tesseract-ocr-spa
-
+        run: sudo apt-get update && sudo apt-get install -y libpoppler-cpp-dev libqpdf-dev libleptonica-dev libtesseract-dev tesseract-ocr-spa
       - name: Instalar paquetes de R
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
@@ -42,6 +36,5 @@ jobs:
             any::RPostgres
             any::stringr
           cache-version: 1
-
       - name: Consultar, descargar y analizar
         run: Rscript run_senate_ingestion.R

@@ -20,6 +20,7 @@ Variables opcionales:
 
 - `OPENAI_MODEL` (por defecto `gpt-5.6`)
 - `SENATE_LEGISLATURE` (por defecto `2026-2027`)
+- `SENATE_COMMISSION` (por defecto `SEPTIMA`; vacío para analizar todas)
 - `SENATE_MAX_ANALYSES` (por defecto `3`)
 
 Requiere R 4.1 o posterior y una versión reciente de RStudio.
