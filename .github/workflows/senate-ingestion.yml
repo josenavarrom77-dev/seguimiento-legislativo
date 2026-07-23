@@ -20,8 +20,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: r-lib/actions/setup-r@v2
       - name: Dependencias del sistema
-        run: sudo apt-get update && sudo apt-get install -y libpoppler-cpp-dev libleptonica-dev libtesseract-dev tesseract-ocr-spa
-      - name: Paquetes de R
-        run: Rscript -e 'install.packages(c("httr2","jsonlite","xml2","pdftools","tesseract","DBI","RSQLite","RPostgres","stringr"), repos="https://cloud.r-project.org")'
+        run: sudo apt-get update && sudo apt-get install -y libpoppler-cpp-dev libqpdf-dev libleptonica-dev libtesseract-dev tesseract-ocr-spa
+      - name: Instalar paquetes de R
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::httr2
+            any::jsonlite
+            any::pdftools
+            any::tesseract
+            any::DBI
+            any::RSQLite
+            any::RPostgres
+            any::stringr
+          cache-version: 1
       - name: Consultar, descargar y analizar
         run: Rscript run_senate_ingestion.R
