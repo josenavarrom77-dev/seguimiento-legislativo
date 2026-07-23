@@ -391,3 +391,43 @@ update_senate_import <- function(senado_id, status, id_interno = "", error = "",
     ))
   invisible(TRUE)
 }
+
+set_senate_import_status <- function(senado_id, status, path = file.path("data", "proyectos.sqlite"),
+                                     actor = "") {
+  init_database(path)
+  con <- connect_database(path)
+  on.exit(DBI::dbDisconnect(con), add = TRUE)
+  db_execute(con, "
+    UPDATE importaciones_senado
+    SET estado_importacion = ?, ultimo_error = '', updated_at = ?
+    WHERE senado_id = ?", list(
+      collapse_value(status), format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
+      collapse_value(senado_id)
+    ))
+  log_audit_connection(
+    con, tolower(collapse_value(status)), "importacion_senado",
+    senado_id, actor, paste("Estado de bandeja:", status)
+  )
+  invisible(TRUE)
+}
+
+ignore_senate_outside_commission <- function(commission = "SEPTIMA",
+                                             path = file.path("data", "proyectos.sqlite"),
+                                             actor = "") {
+  init_database(path)
+  con <- connect_database(path)
+  on.exit(DBI::dbDisconnect(con), add = TRUE)
+  target <- toupper(trimws(iconv(commission, to = "ASCII//TRANSLIT")))
+  affected <- db_execute(con, "
+    UPDATE importaciones_senado
+    SET estado_importacion = 'Ignorado', ultimo_error = '', updated_at = ?
+    WHERE estado_importacion IN ('Nuevo', 'Error', 'Sin PDF')
+      AND UPPER(TRIM(comision)) <> ?", list(
+        format(Sys.time(), "%Y-%m-%d %H:%M:%S"), target
+      ))
+  log_audit_connection(
+    con, "ignorar_en_bloque", "importacion_senado", "",
+    actor, paste("Comisión conservada:", commission, "· Registros:", affected)
+  )
+  affected
+}

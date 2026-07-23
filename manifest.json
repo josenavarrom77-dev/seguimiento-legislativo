@@ -2396,43 +2396,6 @@
         "Archs": "xfun.so.dSYM"
       }
     },
-    "xml2": {
-      "Source": "CRAN",
-      "Repository": "https://cran.rstudio.com",
-      "description": {
-        "Package": "xml2",
-        "Title": "Parse XML",
-        "Version": "1.6.0",
-        "Authors@R": "c(\n    person(\"Hadley\", \"Wickham\", role = \"aut\"),\n    person(\"Jim\", \"Hester\", role = \"aut\"),\n    person(\"Jeroen\", \"Ooms\", email = \"jeroenooms@gmail.com\", role = c(\"aut\", \"cre\")),\n    person(\"Posit Software, PBC\", role = c(\"cph\", \"fnd\")),\n    person(\"R Foundation\", role = \"ctb\",\n           comment = \"Copy of R-project homepage cached as example\")\n  )",
-        "Description": "Bindings to 'libxml2' for working with XML data using a simple, \n    consistent interface based on 'XPath' expressions. Also supports XML schema\n    validation; for 'XSLT' transformations see the 'xslt' package.",
-        "License": "MIT + file LICENSE",
-        "URL": "https://xml2.r-lib.org, https://r-lib.r-universe.dev/xml2",
-        "BugReports": "https://github.com/r-lib/xml2/issues",
-        "Depends": "R (>= 3.6.0)",
-        "Imports": "cli, methods, rlang (>= 1.1.0)",
-        "Suggests": "covr, curl, httr, knitr, mockery, rmarkdown, testthat (>=\n3.2.0), xslt",
-        "VignetteBuilder": "knitr",
-        "Config/Needs/website": "tidyverse/tidytemplate",
-        "Encoding": "UTF-8",
-        "RoxygenNote": "7.3.3",
-        "SystemRequirements": "libxml2: libxml2-dev (deb), libxml2-devel (rpm)",
-        "Collate": "'S4.R' 'as_list.R' 'xml_parse.R' 'as_xml_document.R'\n'classes.R' 'format.R' 'import-standalone-obj-type.R'\n'import-standalone-purrr.R' 'import-standalone-types-check.R'\n'init.R' 'nodeset_apply.R' 'paths.R' 'utils.R' 'xml2-package.R'\n'xml_attr.R' 'xml_children.R' 'xml_document.R' 'xml_find.R'\n'xml_missing.R' 'xml_modify.R' 'xml_name.R' 'xml_namespaces.R'\n'xml_node.R' 'xml_nodeset.R' 'xml_path.R' 'xml_schema.R'\n'xml_serialize.R' 'xml_structure.R' 'xml_text.R' 'xml_type.R'\n'xml_url.R' 'xml_write.R'",
-        "Config/testthat/edition": "3",
-        "NeedsCompilation": "yes",
-        "Packaged": "2026-06-22 13:32:25 UTC; jeroen",
-        "Author": "Hadley Wickham [aut],\n  Jim Hester [aut],\n  Jeroen Ooms [aut, cre],\n  Posit Software, PBC [cph, fnd],\n  R Foundation [ctb] (Copy of R-project homepage cached as example)",
-        "Maintainer": "Jeroen Ooms <jeroenooms@gmail.com>",
-        "Repository": "CRAN",
-        "Date/Publication": "2026-06-22 15:40:02 UTC",
-        "Built": "R 4.6.1; aarch64-apple-darwin23; 2026-06-22 16:51:32 UTC; unix",
-        "Archs": "xml2.so.dSYM",
-        "RemoteType": "standard",
-        "RemotePkgRef": "xml2",
-        "RemoteRef": "xml2",
-        "RemoteRepos": "https://cran.rstudio.com",
-        "RemoteSha": "1.6.0"
-      }
-    },
     "xtable": {
       "Source": "CRAN",
       "Repository": "https://cran.rstudio.com",
@@ -2533,7 +2496,7 @@
       "checksum": "ad5acfe39cbfba8a2d6da10066926b68"
     },
     "app.R": {
-      "checksum": "f290707b3d78ee35e03a22d986d73a8c"
+      "checksum": "bcb13012ca09131dbc9780244f3a4759"
     },
     "install_packages.R": {
       "checksum": "4b710362b9cf0da3bb5058b1635ed2bb"
@@ -2542,7 +2505,7 @@
       "checksum": "8ca6e6599f58840ef7de3231b0f7cfc1"
     },
     "R/database.R": {
-      "checksum": "aa89a4d11f02b1a95bd71f899de7781d"
+      "checksum": "bed3767d2ccef9ff1a99fa5a19dbe740"
     },
     "R/export_excel.R": {
       "checksum": "65a9a097d79b93d9eedefc63447abf95"
@@ -2554,16 +2517,16 @@
       "checksum": "146ae1247f8fdf729ada99d08fdd0fd8"
     },
     "R/pdf_reader.R": {
-      "checksum": "0fb8dbaf7fad24ed8619702655f22856"
+      "checksum": "7bfb3d732f6cf65e647aaaaca3fcbcb1"
     },
     "R/senate_connector.R": {
-      "checksum": "3d1d8d4c88133d0f7d3df401fd4cb959"
+      "checksum": "064d30682d707cf12d4e80febfc053d1"
     },
     "R/utils.R": {
       "checksum": "f2296dde2704eb4ff9dda619b839f93e"
     },
     "README.md": {
-      "checksum": "b0fb8f6c8b7ae2150608fc6db9b303ac"
+      "checksum": "e7396faaed0f238ff2f7e681d7e83e28"
     },
     "www/styles.css": {
       "checksum": "46c1ded5cecd47374aa4c4d8cd23a333"

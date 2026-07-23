@@ -1,5 +1,4 @@
-library(xml2)
-required_packages <- c("shiny", "bslib", "DT", "pdftools", "httr2", "jsonlite", "stringr", "xml2", "DBI", "RSQLite", "RPostgres", "openxlsx", "shinymanager")
+required_packages <- c("shiny", "bslib", "DT", "pdftools", "httr2", "jsonlite", "stringr", "DBI", "RSQLite", "RPostgres", "openxlsx", "shinymanager")
 missing_packages <- required_packages[!vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)]
 if (length(missing_packages)) {
   stop("Faltan paquetes: ", paste(missing_packages, collapse = ", "), ". Ejecuta install_packages.R y reinicia RStudio.")
@@ -74,6 +73,20 @@ app_ui <- shiny::navbarPage(
         shiny::column(
           4,
           shiny::actionButton("sync_senate", "Buscar nuevos ahora", class = "btn-primary w-100")
+        )
+      ),
+      shiny::fluidRow(
+        shiny::column(
+          12,
+          shiny::div(
+            class = "d-flex flex-wrap gap-2 align-items-center mb-3",
+            shiny::actionButton("analyze_senate_selected", "Analizar seleccionado", class = "btn-success"),
+            shiny::actionButton("ignore_senate_selected", "Ignorar seleccionado", class = "btn-outline-secondary"),
+            shiny::actionButton("restore_senate_selected", "Restaurar seleccionado", class = "btn-outline-primary"),
+            shiny::actionButton("ignore_non_seventh", "Ignorar los que no sean Séptima", class = "btn-outline-danger"),
+            shiny::uiOutput("senate_pdf_link"),
+            shiny::checkboxInput("hide_ignored_senate", "Ocultar ignorados", value = TRUE)
+          )
         )
       ),
       shiny::uiOutput("senate_summary"),
@@ -485,9 +498,24 @@ server <- function(input, output, session) {
     list_audit(100L, db_path)
   })
 
-  senate_data <- shiny::reactive({
+  senate_all_data <- shiny::reactive({
     refresh()
     list_senate_imports(path = db_path)
+  })
+
+  senate_data <- shiny::reactive({
+    data <- senate_all_data()
+    if (isTRUE(input$hide_ignored_senate) && nrow(data)) {
+      data <- data[data$estado_importacion != "Ignorado", , drop = FALSE]
+    }
+    data
+  })
+
+  selected_senate_import <- shiny::reactive({
+    selected <- input$senate_table_rows_selected
+    data <- senate_data()
+    if (length(selected) != 1L || !nrow(data)) return(NULL)
+    as.list(data[selected[[1]], , drop = FALSE])
   })
 
   shiny::observeEvent(input$sync_senate, {
@@ -509,7 +537,7 @@ server <- function(input, output, session) {
   }, ignoreInit = TRUE)
 
   output$senate_summary <- shiny::renderUI({
-    data <- senate_data()
+    data <- senate_all_data()
     if (!nrow(data)) {
       return(shiny::div(
         class = "review-banner",
@@ -518,7 +546,7 @@ server <- function(input, output, session) {
     }
     counts <- table(factor(
       data$estado_importacion,
-      levels = c("Nuevo", "Analizado", "Sin PDF", "Error")
+      levels = c("Nuevo", "Analizado", "Sin PDF", "Error", "Ignorado")
     ))
     shiny::div(
       class = "metric-grid",
@@ -530,6 +558,19 @@ server <- function(input, output, session) {
         shiny::span("Con novedad"),
         shiny::strong(counts[["Sin PDF"]] + counts[["Error"]])
       )
+    )
+  })
+
+  output$senate_pdf_link <- shiny::renderUI({
+    row <- selected_senate_import()
+    if (is.null(row) || !nzchar(collapse_value(row$pdf_url))) {
+      return(shiny::span(class = "text-muted", "Selecciona una fila para abrir su PDF."))
+    }
+    shiny::tags$a(
+      "Abrir PDF oficial",
+      href = utils::URLencode(collapse_value(row$pdf_url), reserved = FALSE, repeated = FALSE),
+      target = "_blank", rel = "noopener noreferrer",
+      class = "btn btn-outline-dark"
     )
   })
 
@@ -550,13 +591,88 @@ server <- function(input, output, session) {
       "Fecha", "Importación", "Observación"
     )
     DT::datatable(
-      show, rownames = FALSE, filter = "top",
+      show, rownames = FALSE, filter = "top", selection = "single",
       options = list(
         pageLength = 15, scrollX = TRUE,
         language = list(url = "//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json")
       )
     )
   })
+
+  shiny::observeEvent(input$ignore_senate_selected, {
+    row <- selected_senate_import()
+    if (is.null(row)) {
+      shiny::showNotification("Selecciona un proyecto de la tabla.", type = "warning")
+      return()
+    }
+    set_senate_import_status(row$senado_id, "Ignorado", db_path, current_user())
+    refresh(refresh() + 1L)
+    shiny::showNotification("Proyecto ignorado. El robot no lo analizará.", type = "message")
+  }, ignoreInit = TRUE)
+
+  shiny::observeEvent(input$restore_senate_selected, {
+    row <- selected_senate_import()
+    if (is.null(row)) {
+      shiny::showNotification("Selecciona un proyecto de la tabla.", type = "warning")
+      return()
+    }
+    set_senate_import_status(row$senado_id, "Nuevo", db_path, current_user())
+    refresh(refresh() + 1L)
+    shiny::showNotification("Proyecto restaurado a la cola de análisis.", type = "message")
+  }, ignoreInit = TRUE)
+
+  shiny::observeEvent(input$ignore_non_seventh, {
+    shiny::showModal(shiny::modalDialog(
+      title = "Limpiar bandeja",
+      "Se marcarán como ignorados todos los proyectos pendientes que no pertenezcan a Comisión Séptima. No se borrará información.",
+      footer = shiny::tagList(
+        shiny::modalButton("Cancelar"),
+        shiny::actionButton("confirm_ignore_non_seventh", "Confirmar", class = "btn-danger")
+      )
+    ))
+  }, ignoreInit = TRUE)
+
+  shiny::observeEvent(input$confirm_ignore_non_seventh, {
+    shiny::removeModal()
+    affected <- ignore_senate_outside_commission("SEPTIMA", db_path, current_user())
+    refresh(refresh() + 1L)
+    shiny::showNotification(paste(affected, "proyectos fueron marcados como ignorados."), type = "message")
+  }, ignoreInit = TRUE)
+
+  shiny::observeEvent(input$analyze_senate_selected, {
+    row <- selected_senate_import()
+    if (is.null(row)) {
+      shiny::showNotification("Selecciona un proyecto de la tabla.", type = "warning")
+      return()
+    }
+    if (identical(collapse_value(row$estado_importacion), "Analizado")) {
+      shiny::showNotification("Este proyecto ya fue analizado y está en Proyectos guardados.", type = "warning")
+      return()
+    }
+    completed <- FALSE
+    shiny::withProgress(message = paste("Analizando", collapse_value(row$numero_senado)), value = 0.1, {
+      tryCatch({
+        detail <- senate_detail(row$senado_id)
+        if (nzchar(collapse_value(detail$pdf_url))) {
+          row$pdf_url <- detail$pdf_url
+          row$fecha_presentacion <- blank_default(detail$fecha_presentacion, row$fecha_presentacion)
+          upsert_senate_import(row, db_path)
+        }
+        shiny::incProgress(0.2, detail = "Descargando y leyendo el texto radicado")
+        completed <- isTRUE(analyze_senate_import(row, db_path))
+        shiny::incProgress(0.7, detail = "Guardando ficha en la matriz")
+      }, error = function(e) {
+        shiny::showNotification(conditionMessage(e), type = "error", duration = NULL)
+      })
+    })
+    refresh(refresh() + 1L)
+    if (completed) {
+      shiny::showNotification("Análisis terminado. La ficha está en Proyectos guardados.", type = "message")
+      shiny::updateNavbarPage(session, "main_tabs", selected = "Proyectos guardados")
+    } else {
+      shiny::showNotification("No fue posible completar el análisis. Revisa la columna Observación.", type = "error")
+    }
+  }, ignoreInit = TRUE)
 
   shiny::observe({
     data <- projects_data()
