@@ -78,6 +78,13 @@ app_ui <- shiny::navbarPage(
       shiny::fluidRow(
         shiny::column(
           12,
+          shiny::selectizeInput(
+            "senate_selected_id",
+            "Proyecto seleccionado",
+            choices = character(0),
+            options = list(placeholder = "Busca por número o título y selecciona un proyecto")
+          ),
+          shiny::uiOutput("senate_selected_summary"),
           shiny::div(
             class = "d-flex flex-wrap gap-2 align-items-center mb-3",
             shiny::actionButton("analyze_senate_selected", "Analizar seleccionado", class = "btn-success"),
@@ -512,11 +519,43 @@ server <- function(input, output, session) {
   })
 
   selected_senate_import <- shiny::reactive({
+    data <- senate_data()
+    selected_id <- collapse_value(input$senate_selected_id)
+    if (!nzchar(selected_id) || !nrow(data)) return(NULL)
+    position <- which(data$senado_id == selected_id)
+    if (!length(position)) return(NULL)
+    as.list(data[position[[1]], , drop = FALSE])
+  })
+
+  shiny::observe({
+    data <- senate_data()
+    if (!nrow(data)) {
+      shiny::updateSelectizeInput(
+        session, "senate_selected_id",
+        choices = character(0), selected = character(0), server = TRUE
+      )
+      return()
+    }
+    labels <- paste0(data$numero_senado, " · ", data$comision, " · ", substr(data$titulo, 1, 120))
+    choices <- stats::setNames(data$senado_id, labels)
+    current <- shiny::isolate(collapse_value(input$senate_selected_id))
+    selected <- if (current %in% data$senado_id) current else character(0)
+    shiny::updateSelectizeInput(
+      session, "senate_selected_id",
+      choices = choices, selected = selected, server = TRUE
+    )
+  })
+
+  shiny::observeEvent(input$senate_table_rows_selected, {
     selected <- input$senate_table_rows_selected
     data <- senate_data()
-    if (length(selected) != 1L || !nrow(data)) return(NULL)
-    as.list(data[selected[[1]], , drop = FALSE])
-  })
+    if (length(selected) == 1L && nrow(data)) {
+      shiny::updateSelectizeInput(
+        session, "senate_selected_id",
+        selected = data$senado_id[[selected[[1]]]], server = TRUE
+      )
+    }
+  }, ignoreInit = TRUE)
 
   shiny::observeEvent(input$sync_senate, {
     tryCatch({
@@ -574,6 +613,28 @@ server <- function(input, output, session) {
     )
   })
 
+  output$senate_selected_summary <- shiny::renderUI({
+    row <- selected_senate_import()
+    if (is.null(row)) {
+      return(shiny::div(
+        class = "review-banner",
+        "Selecciona el proyecto en el campo anterior o haciendo clic en una fila de la tabla."
+      ))
+    }
+    pdf_status <- if (nzchar(collapse_value(row$pdf_url))) {
+      "PDF oficial disponible"
+    } else {
+      "PDF oficial no disponible"
+    }
+    shiny::div(
+      class = "tracking-badge mb-3",
+      shiny::strong(collapse_value(row$numero_senado)),
+      shiny::span(paste("·", collapse_value(row$comision))),
+      shiny::span(paste("·", collapse_value(row$estado_importacion))),
+      shiny::span(paste("·", pdf_status))
+    )
+  })
+
   output$senate_table <- DT::renderDT({
     data <- senate_data()
     if (!nrow(data)) {
@@ -605,9 +666,19 @@ server <- function(input, output, session) {
       shiny::showNotification("Selecciona un proyecto de la tabla.", type = "warning")
       return()
     }
-    set_senate_import_status(row$senado_id, "Ignorado", db_path, current_user())
-    refresh(refresh() + 1L)
-    shiny::showNotification("Proyecto ignorado. El robot no lo analizará.", type = "message")
+    tryCatch({
+      set_senate_import_status(row$senado_id, "Ignorado", db_path, current_user())
+      refresh(refresh() + 1L)
+      shiny::updateSelectizeInput(
+        session, "senate_selected_id", selected = character(0), server = TRUE
+      )
+      shiny::showNotification("Proyecto ignorado. El robot no lo analizará.", type = "message")
+    }, error = function(e) {
+      shiny::showNotification(
+        paste("No se pudo ignorar el proyecto:", conditionMessage(e)),
+        type = "error", duration = NULL
+      )
+    })
   }, ignoreInit = TRUE)
 
   shiny::observeEvent(input$restore_senate_selected, {
@@ -616,9 +687,16 @@ server <- function(input, output, session) {
       shiny::showNotification("Selecciona un proyecto de la tabla.", type = "warning")
       return()
     }
-    set_senate_import_status(row$senado_id, "Nuevo", db_path, current_user())
-    refresh(refresh() + 1L)
-    shiny::showNotification("Proyecto restaurado a la cola de análisis.", type = "message")
+    tryCatch({
+      set_senate_import_status(row$senado_id, "Nuevo", db_path, current_user())
+      refresh(refresh() + 1L)
+      shiny::showNotification("Proyecto restaurado a la cola de análisis.", type = "message")
+    }, error = function(e) {
+      shiny::showNotification(
+        paste("No se pudo restaurar el proyecto:", conditionMessage(e)),
+        type = "error", duration = NULL
+      )
+    })
   }, ignoreInit = TRUE)
 
   shiny::observeEvent(input$ignore_non_seventh, {
@@ -634,9 +712,19 @@ server <- function(input, output, session) {
 
   shiny::observeEvent(input$confirm_ignore_non_seventh, {
     shiny::removeModal()
-    affected <- ignore_senate_outside_commission("SEPTIMA", db_path, current_user())
-    refresh(refresh() + 1L)
-    shiny::showNotification(paste(affected, "proyectos fueron marcados como ignorados."), type = "message")
+    tryCatch({
+      affected <- ignore_senate_outside_commission("SEPTIMA", db_path, current_user())
+      refresh(refresh() + 1L)
+      shiny::showNotification(
+        paste(affected, "proyectos fueron marcados como ignorados."),
+        type = "message"
+      )
+    }, error = function(e) {
+      shiny::showNotification(
+        paste("No fue posible limpiar la bandeja:", conditionMessage(e)),
+        type = "error", duration = NULL
+      )
+    })
   }, ignoreInit = TRUE)
 
   shiny::observeEvent(input$analyze_senate_selected, {

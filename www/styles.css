@@ -34,3 +34,9 @@ textarea.form-control { line-height: 1.45; }
 .login-brand { text-align: center; color: #17324d; margin-bottom: 20px; }
 .login-brand h3 { margin-bottom: 4px; }
 .login-brand p { color: #6c7f8d; }
+table.dataTable tbody tr { cursor: pointer; }
+table.dataTable tbody tr.selected > * {
+  background-color: #cfe8e4 !important;
+  color: #17324d !important;
+  box-shadow: inset 0 0 0 9999px rgba(15, 107, 102, 0.12) !important;
+}

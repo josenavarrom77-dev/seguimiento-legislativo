@@ -2496,7 +2496,7 @@
       "checksum": "ad5acfe39cbfba8a2d6da10066926b68"
     },
     "app.R": {
-      "checksum": "bcb13012ca09131dbc9780244f3a4759"
+      "checksum": "ccd795e2139b661c222367c93616b018"
     },
     "install_packages.R": {
       "checksum": "4b710362b9cf0da3bb5058b1635ed2bb"
@@ -2529,7 +2529,7 @@
       "checksum": "e7396faaed0f238ff2f7e681d7e83e28"
     },
     "www/styles.css": {
-      "checksum": "46c1ded5cecd47374aa4c4d8cd23a333"
+      "checksum": "cb6b96b5baad65dd8b5147362e2b8915"
     }
   },
   "users": null
