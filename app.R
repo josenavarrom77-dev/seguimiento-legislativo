@@ -1,7 +1,4 @@
-source("install_packages.R")
-usethis::edit_r_environ()
-source("prepare_deployment.R")
-required_packages <- c("shiny", "bslib", "DT", "pdftools", "httr2", "jsonlite", "stringr", "DBI", "RSQLite", "RPostgres", "openxlsx", "shinymanager")
+required_packages <- c("shiny", "bslib", "DT", "pdftools", "httr2", "jsonlite", "stringr", "xml2", "DBI", "RSQLite", "RPostgres", "openxlsx", "shinymanager")
 missing_packages <- required_packages[!vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)]
 if (length(missing_packages)) {
   stop("Faltan paquetes: ", paste(missing_packages, collapse = ", "), ". Ejecuta install_packages.R y reinicia RStudio.")
@@ -57,6 +54,29 @@ app_ui <- shiny::navbarPage(
         bslib::card_header("Actividad reciente del equipo"),
         DT::DTOutput("audit_table")
       )
+    )
+  ),
+
+  shiny::tabPanel(
+    "Bandeja Senado",
+    shiny::fluidPage(
+      shiny::br(),
+      shiny::fluidRow(
+        shiny::column(
+          8,
+          shiny::h2("Proyectos detectados en el Senado"),
+          shiny::p(
+            class = "text-muted",
+            "Los proyectos analizados entran al tablero como pendientes de revisión humana."
+          )
+        ),
+        shiny::column(
+          4,
+          shiny::actionButton("sync_senate", "Buscar nuevos ahora", class = "btn-primary w-100")
+        )
+      ),
+      shiny::uiOutput("senate_summary"),
+      DT::DTOutput("senate_table")
     )
   ),
 
@@ -464,6 +484,79 @@ server <- function(input, output, session) {
     list_audit(100L, db_path)
   })
 
+  senate_data <- shiny::reactive({
+    refresh()
+    list_senate_imports(path = db_path)
+  })
+
+  shiny::observeEvent(input$sync_senate, {
+    tryCatch({
+      shiny::withProgress(message = "Consultando el portal del Senado", value = 0.2, {
+        count <- discover_senate_projects(
+          Sys.getenv("SENATE_LEGISLATURE", "2026-2027"), db_path
+        )
+        shiny::incProgress(0.8)
+        refresh(refresh() + 1L)
+        shiny::showNotification(
+          paste(count, "proyectos encontrados. La automatización analizará los nuevos."),
+          type = "message"
+        )
+      })
+    }, error = function(e) {
+      shiny::showNotification(conditionMessage(e), type = "error", duration = NULL)
+    })
+  }, ignoreInit = TRUE)
+
+  output$senate_summary <- shiny::renderUI({
+    data <- senate_data()
+    if (!nrow(data)) {
+      return(shiny::div(
+        class = "review-banner",
+        "La bandeja está vacía. Pulsa “Buscar nuevos ahora” para la primera consulta."
+      ))
+    }
+    counts <- table(factor(
+      data$estado_importacion,
+      levels = c("Nuevo", "Analizado", "Sin PDF", "Error")
+    ))
+    shiny::div(
+      class = "metric-grid",
+      shiny::div(class = "metric-card metric-total", shiny::span("Detectados"), shiny::strong(nrow(data))),
+      shiny::div(class = "metric-card metric-pending", shiny::span("Por analizar"), shiny::strong(counts[["Nuevo"]])),
+      shiny::div(class = "metric-card metric-ok", shiny::span("Analizados"), shiny::strong(counts[["Analizado"]])),
+      shiny::div(
+        class = "metric-card metric-danger",
+        shiny::span("Con novedad"),
+        shiny::strong(counts[["Sin PDF"]] + counts[["Error"]])
+      )
+    )
+  })
+
+  output$senate_table <- DT::renderDT({
+    data <- senate_data()
+    if (!nrow(data)) {
+      return(DT::datatable(
+        data.frame(Mensaje = "No hay proyectos importados todavía."),
+        rownames = FALSE, options = list(dom = "t")
+      ))
+    }
+    show <- data[, c(
+      "numero_senado", "titulo", "autor", "comision", "estado_senado",
+      "fecha_presentacion", "estado_importacion", "ultimo_error"
+    ), drop = FALSE]
+    names(show) <- c(
+      "N.º Senado", "Título", "Autor", "Comisión", "Estado Senado",
+      "Fecha", "Importación", "Observación"
+    )
+    DT::datatable(
+      show, rownames = FALSE, filter = "top",
+      options = list(
+        pageLength = 15, scrollX = TRUE,
+        language = list(url = "//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json")
+      )
+    )
+  })
+
   shiny::observe({
     data <- projects_data()
     if (!nrow(data)) {
@@ -724,4 +817,3 @@ server <- function(input, output, session) {
 }
 
 shiny::shinyApp(ui, server)
-

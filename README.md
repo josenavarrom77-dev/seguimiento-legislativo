@@ -4,6 +4,24 @@ Aplicación para cargar un proyecto de ley en PDF, extraer su texto, generar una
 
 Funciona en dos modalidades: local con SQLite y web multiusuario con PostgreSQL. La guía completa de publicación está en `WEB_DEPLOYMENT.md`.
 
+## Importación automática del Senado
+
+La aplicación consulta la fuente oficial del Senado, registra los proyectos nuevos en
+`importaciones_senado`, descarga el texto radicado disponible y analiza una cantidad
+limitada por ejecución. El flujo programado está en
+`.github/workflows/senate-ingestion.yml`.
+
+Secretos requeridos en GitHub Actions:
+
+- `DATABASE_URL`
+- `OPENAI_API_KEY`
+
+Variables opcionales:
+
+- `OPENAI_MODEL` (por defecto `gpt-5.6`)
+- `SENATE_LEGISLATURE` (por defecto `2026-2027`)
+- `SENATE_MAX_ANALYSES` (por defecto `3`)
+
 Requiere R 4.1 o posterior y una versión reciente de RStudio.
 
 ## 1. Abrir el proyecto

@@ -3,4 +3,6 @@ data
 migrate_to_postgres.R
 prepare_deployment.R
 WEB_DEPLOYMENT.md
+run_senate_ingestion.R
+.github
 rsconnect

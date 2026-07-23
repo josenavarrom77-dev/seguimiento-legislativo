@@ -1,6 +1,6 @@
 packages <- c(
   "shiny", "bslib", "DT", "pdftools", "httr2", "jsonlite", "stringr",
-  "DBI", "RSQLite", "RPostgres", "openxlsx", "shinymanager", "tesseract", "usethis", "rsconnect"
+  "DBI", "RSQLite", "RPostgres", "openxlsx", "shinymanager", "tesseract", "xml2", "usethis", "rsconnect"
 )
 
 missing <- packages[!vapply(packages, requireNamespace, logical(1), quietly = TRUE)]

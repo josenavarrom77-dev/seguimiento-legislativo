@@ -132,9 +132,31 @@ init_database <- function(path = file.path("data", "proyectos.sqlite"), force = 
       created_at TEXT NOT NULL
     )", serial_id))
 
+  DBI::dbExecute(con, "
+    CREATE TABLE IF NOT EXISTS importaciones_senado (
+      senado_id TEXT PRIMARY KEY,
+      legislatura TEXT NOT NULL,
+      numero_senado TEXT,
+      numero_camara TEXT,
+      titulo TEXT NOT NULL,
+      autor TEXT,
+      comision TEXT,
+      estado_senado TEXT,
+      fecha_presentacion TEXT,
+      detalle_url TEXT,
+      pdf_url TEXT,
+      estado_importacion TEXT NOT NULL DEFAULT 'Nuevo',
+      id_interno TEXT,
+      intentos INTEGER NOT NULL DEFAULT 0,
+      ultimo_error TEXT,
+      descubierto_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )")
+
   DBI::dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_actuaciones_proyecto ON actuaciones(id_interno, fecha)")
   DBI::dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_tareas_proyecto ON tareas(id_interno, estado, fecha_limite)")
   DBI::dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_auditoria_fecha ON auditoria(created_at)")
+  DBI::dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_importaciones_estado ON importaciones_senado(estado_importacion, descubierto_at)")
   database_state$ready <- TRUE
   invisible(path)
 }
@@ -293,4 +315,77 @@ list_audit <- function(limit = 100L, path = file.path("data", "proyectos.sqlite"
   on.exit(DBI::dbDisconnect(con), add = TRUE)
   limit <- max(1L, min(as.integer(limit), 1000L))
   db_query(con, sprintf("SELECT * FROM auditoria ORDER BY created_at DESC, auditoria_id DESC LIMIT %d", limit))
+}
+
+upsert_senate_import <- function(item, path = file.path("data", "proyectos.sqlite")) {
+  init_database(path)
+  con <- connect_database(path)
+  on.exit(DBI::dbDisconnect(con), add = TRUE)
+  now <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+  db_execute(con, "
+    INSERT INTO importaciones_senado
+      (senado_id, legislatura, numero_senado, numero_camara, titulo, autor, comision,
+       estado_senado, fecha_presentacion, detalle_url, pdf_url, estado_importacion,
+       id_interno, intentos, ultimo_error, descubierto_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Nuevo', '', 0, '', ?, ?)
+    ON CONFLICT(senado_id) DO UPDATE SET
+      legislatura = excluded.legislatura,
+      numero_senado = excluded.numero_senado,
+      numero_camara = excluded.numero_camara,
+      titulo = excluded.titulo,
+      autor = excluded.autor,
+      comision = excluded.comision,
+      estado_senado = excluded.estado_senado,
+      fecha_presentacion = excluded.fecha_presentacion,
+      detalle_url = excluded.detalle_url,
+      pdf_url = excluded.pdf_url,
+      estado_importacion = CASE
+        WHEN importaciones_senado.estado_importacion = 'Sin PDF'
+          AND importaciones_senado.pdf_url = ''
+          AND excluded.pdf_url <> ''
+        THEN 'Nuevo'
+        ELSE importaciones_senado.estado_importacion
+      END,
+      updated_at = excluded.updated_at", list(
+        collapse_value(item$senado_id), collapse_value(item$legislatura),
+        collapse_value(item$numero_senado), collapse_value(item$numero_camara),
+        collapse_value(item$titulo), collapse_value(item$autor),
+        collapse_value(item$comision), collapse_value(item$estado_senado),
+        collapse_value(item$fecha_presentacion), collapse_value(item$detalle_url),
+        collapse_value(item$pdf_url), now, now
+      ))
+  invisible(item$senado_id)
+}
+
+list_senate_imports <- function(status = NULL, limit = 500L, path = file.path("data", "proyectos.sqlite")) {
+  init_database(path)
+  con <- connect_database(path)
+  on.exit(DBI::dbDisconnect(con), add = TRUE)
+  limit <- max(1L, min(as.integer(limit), 5000L))
+  if (is.null(status) || !nzchar(status)) {
+    return(db_query(con, sprintf(
+      "SELECT * FROM importaciones_senado ORDER BY descubierto_at DESC, senado_id DESC LIMIT %d",
+      limit
+    )))
+  }
+  db_query(con, sprintf(
+    "SELECT * FROM importaciones_senado WHERE estado_importacion = ? ORDER BY descubierto_at, senado_id LIMIT %d",
+    limit
+  ), list(status))
+}
+
+update_senate_import <- function(senado_id, status, id_interno = "", error = "",
+                                 path = file.path("data", "proyectos.sqlite")) {
+  init_database(path)
+  con <- connect_database(path)
+  on.exit(DBI::dbDisconnect(con), add = TRUE)
+  db_execute(con, "
+    UPDATE importaciones_senado
+    SET estado_importacion = ?, id_interno = ?, ultimo_error = ?,
+        intentos = intentos + 1, updated_at = ?
+    WHERE senado_id = ?", list(
+      collapse_value(status), collapse_value(id_interno), collapse_value(error),
+      format(Sys.time(), "%Y-%m-%d %H:%M:%S"), collapse_value(senado_id)
+    ))
+  invisible(TRUE)
 }

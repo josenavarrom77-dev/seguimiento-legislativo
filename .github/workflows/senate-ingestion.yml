@@ -1,0 +1,27 @@
+name: Importar proyectos del Senado
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 12 * * 1-5"
+    - cron: "0 20 * * 1-5"
+
+jobs:
+  importar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-5.6' }}
+      SENATE_LEGISLATURE: ${{ vars.SENATE_LEGISLATURE || '2026-2027' }}
+      SENATE_MAX_ANALYSES: ${{ vars.SENATE_MAX_ANALYSES || '3' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+      - name: Dependencias del sistema
+        run: sudo apt-get update && sudo apt-get install -y libpoppler-cpp-dev libleptonica-dev libtesseract-dev tesseract-ocr-spa
+      - name: Paquetes de R
+        run: Rscript -e 'install.packages(c("httr2","jsonlite","xml2","pdftools","tesseract","DBI","RSQLite","RPostgres","stringr"), repos="https://cloud.r-project.org")'
+      - name: Consultar, descargar y analizar
+        run: Rscript run_senate_ingestion.R
