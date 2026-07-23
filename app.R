@@ -293,7 +293,8 @@ server <- function(input, output, session) {
   }
 
   current_user <- shiny::reactive({
-    blank_default(auth()$user, "usuario_local")
+    auth_value <- tryCatch(auth(), error = function(e) NULL)
+    blank_default(auth_value$user, "usuario_web")
   })
 
   state <- shiny::reactiveValues(
@@ -560,6 +561,15 @@ server <- function(input, output, session) {
     }
   }, ignoreInit = TRUE)
 
+  shiny::observeEvent(input$senate_pick_id, {
+    selected_id <- collapse_value(input$senate_pick_id)
+    if (nzchar(selected_id)) {
+      shiny::updateSelectInput(
+        session, "senate_selected_id", selected = selected_id
+      )
+    }
+  }, ignoreInit = TRUE)
+
   shiny::observeEvent(input$sync_senate, {
     tryCatch({
       shiny::withProgress(message = "Consultando el portal del Senado", value = 0.2, {
@@ -650,12 +660,26 @@ server <- function(input, output, session) {
       "numero_senado", "titulo", "autor", "comision", "estado_senado",
       "fecha_presentacion", "estado_importacion", "ultimo_error"
     ), drop = FALSE]
+    show <- cbind(
+      Elegir = sprintf(
+        "<button type='button' class='btn btn-sm btn-primary senate-pick' data-id='%s'>Elegir</button>",
+        data$senado_id
+      ),
+      show,
+      stringsAsFactors = FALSE
+    )
     names(show) <- c(
-      "N.º Senado", "Título", "Autor", "Comisión", "Estado Senado",
+      "Elegir", "N.º Senado", "Título", "Autor", "Comisión", "Estado Senado",
       "Fecha", "Importación", "Observación"
     )
     DT::datatable(
-      show, rownames = FALSE, filter = "top", selection = "single",
+      show, rownames = FALSE, filter = "top", selection = "single", escape = FALSE,
+      callback = DT::JS(
+        "table.on('click', 'button.senate-pick', function(event) {",
+        "  event.stopPropagation();",
+        "  Shiny.setInputValue('senate_pick_id', $(this).data('id'), {priority: 'event'});",
+        "});"
+      ),
       options = list(
         pageLength = 15, scrollX = TRUE,
         language = list(url = "//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json")
