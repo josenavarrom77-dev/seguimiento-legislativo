@@ -6,3 +6,5 @@ WEB_DEPLOYMENT.md
 run_senate_ingestion.R
 .github
 rsconnect
+.Rproj.user
+.DS_Store
